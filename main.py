@@ -4,7 +4,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 # === ВСТАВЬ СВОИ ДАННЫЕ ===
-API_TOKEN = "8636589473:AAHyTHh1G8GB-xVtlLrx6YLe0VjekXd5fl8"
+API_TOKEN = 8636589473:AAHyTHh1G8GB-xVtlLrx6YLe0VjekXd5fl8
 ADMIN_ID = 1044750995
 CHANNEL_ID = --1003743890998
 # =========================
