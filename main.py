@@ -1,50 +1,57 @@
-from aiogram import Bot, Dispatcher, executor, types
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import os
+import asyncio
+from aiogram import Bot, Dispatcher, F
+from aiogram.types import Message, CallbackQuery
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-API_TOKEN = "8636589473:AAHyTHh1G8GB-xVtlLrx6YLe0VjekXd5fl8"
-ADMIN_ID = 1044750995
-CHANNEL_ID = -1003743890998
-
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot)
+API_TOKEN = os.getenv("8636589473:AAHyTHh1G8GB-xVtlLrx6YLe0VjekXd5fl8")  # в Railway Variables
+ADMIN_ID = int(os.getenv("1044750995"))
+CHANNEL_ID = int(os.getenv("-1003743890998"))
 
 pending = {}
 
-@dp.message_handler(commands=["start"])
-async def start(message: types.Message):
-    await message.answer("Отправь новость одним сообщением. Анонимно.")
+async def main():
+    bot = Bot(token=API_TOKEN)
+    dp = Dispatcher()
 
-@dp.message_handler(content_types=types.ContentTypes.TEXT)
-async def get_news(message: types.Message):
-    pid = message.message_id
-    pending[pid] = message.text
+    @dp.message(F.text, F.text.startswith("/start"))
+    async def start(message: Message):
+        await message.answer("Отправь новость одним сообщением. Анонимно.")
 
-    kb = InlineKeyboardMarkup()
-    kb.add(
-        InlineKeyboardButton("✅ Опубликовать", callback_data=f"ok:{pid}"),
-        InlineKeyboardButton("❌ Отклонить", callback_data=f"no:{pid}")
-    )
+    @dp.message(F.text)
+    async def get_news(message: Message):
+        pid = message.message_id
+        pending[pid] = message.text
 
-    await bot.send_message(
-        ADMIN_ID,
-        f"🆕 Новость:\n\n{message.text}",
-        reply_markup=kb
-    )
+        kb = InlineKeyboardBuilder()
+        kb.button(text="✅ Опубликовать", callback_data=f"ok:{pid}")
+        kb.button(text="❌ Отклонить", callback_data=f"no:{pid}")
+        kb.adjust(2)
 
-    await message.answer("Новость отправлена на модерацию")
+        await bot.send_message(
+            ADMIN_ID,
+            f"🆕 Новость:\n\n{message.text}",
+            reply_markup=kb.as_markup()
+        )
+        await message.answer("Новость отправлена на модерацию")
 
-@dp.callback_query_handler(lambda c: c.data.startswith("ok"))
-async def approve(c: types.CallbackQuery):
-    pid = int(c.data.split(":")[1])
-    await bot.send_message(CHANNEL_ID, pending[pid])
-    await c.message.edit_text("✅ Опубликовано")
-    pending.pop(pid, None)
+    @dp.callback_query(F.data.startswith("ok:"))
+    async def approve(c: CallbackQuery):
+        pid = int(c.data.split(":")[1])
+        text = pending.pop(pid, None)
+        if text:
+            await bot.send_message(CHANNEL_ID, text)
+            await c.message.edit_text("✅ Опубликовано")
+        await c.answer()
 
-@dp.callback_query_handler(lambda c: c.data.startswith("no"))
-async def reject(c: types.CallbackQuery):
-    pid = int(c.data.split(":")[1])
-    pending.pop(pid, None)
-    await c.message.edit_text("❌ Отклонено")
+    @dp.callback_query(F.data.startswith("no:"))
+    async def reject(c: CallbackQuery):
+        pid = int(c.data.split(":")[1])
+        pending.pop(pid, None)
+        await c.message.edit_text("❌ Отклонено")
+        await c.answer()
+
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    executor.start_polling(dp)
+    asyncio.run(main())
